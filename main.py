@@ -111,8 +111,7 @@ class ShareAllocator:
 
         left = tk.Frame(body, bg=self.c["bg"])
         left.pack(side="left", fill="y", padx=(0, 14))
-        self.right = tk.Frame(body, bg=self.c["bg"])
-        self.right.pack(side="left", fill="both", expand=True)
+        self._build_scroll_area(body)
 
         self._build_cash(left)
         self._build_targets(left)
@@ -123,6 +122,40 @@ class ShareAllocator:
             fg="#04130a", activebackground="#16a34a", relief="flat", bd=0,
             font=(FONT, 11, "bold"), padx=16, pady=10, cursor="hand2",
         ).pack(fill="x", pady=(2, 0))
+
+    def _build_scroll_area(self, parent):
+        """Results column: scrolls vertically when the panels outgrow the window."""
+        wrap = tk.Frame(parent, bg=self.c["bg"])
+        wrap.pack(side="left", fill="both", expand=True)
+
+        canvas = tk.Canvas(wrap, bg=self.c["bg"], highlightthickness=0)
+        bar = ttk.Scrollbar(wrap, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        self.right = tk.Frame(canvas, bg=self.c["bg"])
+        window = canvas.create_window((0, 0), window=self.right, anchor="nw")
+        self.right.bind(
+            "<Configure>", lambda _e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(window, width=e.width))
+
+        def scroll(delta):
+            if self.right.winfo_height() > canvas.winfo_height():
+                canvas.yview_scroll(delta, "units")
+
+        def on_enter(_e):
+            canvas.bind_all("<Button-4>", lambda _e: scroll(-3))
+            canvas.bind_all("<Button-5>", lambda _e: scroll(3))
+            canvas.bind_all("<MouseWheel>", lambda e: scroll(-1 if e.delta > 0 else 1))
+
+        def on_leave(_e):
+            for ev in ("<Button-4>", "<Button-5>", "<MouseWheel>"):
+                canvas.unbind_all(ev)
+
+        wrap.bind("<Enter>", on_enter)
+        wrap.bind("<Leave>", on_leave)
+        self.scroll_canvas = canvas
 
     def _build_cash(self, parent):
         card = self._card(parent, "Cash")
